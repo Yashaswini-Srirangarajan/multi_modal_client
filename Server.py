@@ -30,8 +30,8 @@ class MultiServer:
     CALIBERATE_CAM_TWO =False
     CALIBERATE_CAM_ONE =False
 
-    camera_one=None
-    camera_two=None
+    camera_one=Camera(1)
+    camera_two=Camera(1)
 
 
     GSR_DATA = []
@@ -70,7 +70,6 @@ class MultiServer:
 
         count = 0
         while True:
-
             try:
                 message = await websocket.recv()
                 count+=1
@@ -90,6 +89,7 @@ class MultiServer:
                 elif (sensor_type == 3):
                     self.process_force_mat_data(msg_json)
                 elif (sensor_type == 4):
+                    print(sensor_type)
                     self.process_speech_text_data(msg_json)
                 elif (sensor_type == 5):
                     if not self.CALIBERATE_CAM_ONE:
@@ -144,17 +144,17 @@ class MultiServer:
 
 
     def process_speech_text_data(self,msg_json):
-        #print('in speech 2 text')
+        print('in speech 2 text')
+        print(msg_json['speech'],msg_json['text'],msg_json['time'])
         self.speechToText.update_speech_to_text_data(msg_json['speech'],msg_json['text'],msg_json['time'])
 
-    def process_cam_one_data(self,msg_json,cam):
-        data = msg_json['data']
+    def process_cam_one_data(self,msg_json):
+
+        data=msg_json['data']
         self.frame_count+=1
         decodedArrays = json.loads(data)
         finalNumpyArray = numpy.asarray(decodedArrays["array"])
-        #print(finalNumpyArray[0, :])
-        cam.setup_people(finalNumpyArray, msg_json['time'])
-
+        self.camera_one.setup_people(finalNumpyArray, msg_json['time'])
 
     def process_cam_two_data(self,msg_json):
         print('in func cam 2 data')
@@ -165,9 +165,9 @@ class MultiServer:
         while True:
             try:
                 print('going to send a message')
-                #await websocket.send(json.dumps(self.prep_data()))
-                await websocket.send('hi')
-                #print('sent')
+                #await websocket.send('hi')
+                await websocket.send(json.dumps(self.prep_data()))
+                print('sent')
             except websockets.exceptions.ConnectionClosedError as error1:
                 print(f'Server Error: {error1}')
 
@@ -188,10 +188,10 @@ class MultiServer:
 
     def collect_data(self):
         self.t.start()
-        #self.plotter_thread.start()
 
 
     def prep_data(self):
+
 
         data_to_app = {
                         0: {"gsr":self.GSR.gsr_data,
@@ -224,9 +224,7 @@ class MultiServer:
         }
         print('inside prep_data')
         print(data_to_app)
-        with open("sample.json", "w") as outfile:
-            json.dump(data_to_app, outfile)
-        return json.dumps(data_to_app)
+        return data_to_app
 
 
 
@@ -256,7 +254,7 @@ class MultiServer:
 
 
 
-    async def plot(self):
+    def plot(self):
         anim = FuncAnimation(
             self.fig, self.animate_plot, interval=1000
         )
@@ -292,15 +290,12 @@ class MultiServer:
 
 if __name__ == "__main__":
     listener = MultiServer()
-    #listener.plot()
-    #listener.collect_data()
-    listener.dummy_run()
-
+    listener.collect_data()
     #listener.prep_data()
     #S = threading.Timer(2.0, listener.prep_data())
     #S.start()
-
-
+    #listener.plot()
+    listener.dummy_run()
 
 
 
