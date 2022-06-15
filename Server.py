@@ -8,13 +8,14 @@ from matplotlib.animation import FuncAnimation
 import numpy
 from AppConnector import AppConnector
 import time
-import readchar
+
 import sys
 from FSR import FSR
 from GSR import GSR
 from EMG import EMG
 from SpeechToText import SpeechToText
 from Camera import Camera
+from ForceMat import ForceMat
 
 class MultiServer:
 
@@ -24,9 +25,14 @@ class MultiServer:
     FSR = FSR()
     GSR = GSR()
     EMG = EMG()
+    force_mat = ForceMat()
     speechToText = SpeechToText()
-    camera_one = Camera()
-    camera_one = Camera()
+    CALIBERATE_CAM_TWO =False
+    CALIBERATE_CAM_ONE =False
+
+    camera_one=None
+    camera_two=None
+
 
     GSR_DATA = []
     PULSE_DATA = []
@@ -38,13 +44,14 @@ class MultiServer:
     FORCE_MAT_DATA = []
     EMG_DATA = []
 
+
     HOST = ""  # Empty denotes a localhost.
     PORT = 7891
 
     time1 =0
     time2 =0
     frame_count =0
-    fig, axs = plt.subplots(2)
+    fig, axs = plt.subplots(nrows=5, ncols=5)
     CONNECTIONS = set()
 
 
@@ -54,21 +61,20 @@ class MultiServer:
     def __init__(self):
         self.exit_thread = threading.Timer(2.0,self.time_and_exit) #exit after 30 seconds
         self.t = threading.Thread(target=self.run)
-        self.poller_thread = threading.Timer(1.0, self.prep_data)
+        #self.plotter_thread = threading.Thread(target=self.plot)
 
     async def handler(self,websocket):
 
         self.time1 = time.time()
-        print('in server handler')
         self.CONNECTIONS.add(websocket)
 
         count = 0
         while True:
+
             try:
                 message = await websocket.recv()
                 count+=1
-                print(count)
-                print(message)
+
 
                 msg_json = json.loads(message)
                 sensor_type = msg_json['sensor_type']
@@ -84,12 +90,24 @@ class MultiServer:
                 elif (sensor_type == 3):
                     self.process_force_mat_data(msg_json)
                 elif (sensor_type == 4):
-                    print(sensor_type)
                     self.process_speech_text_data(msg_json)
                 elif (sensor_type == 5):
-                    self.process_cam_one_data(msg_json)
+                    if not self.CALIBERATE_CAM_ONE:
+                        print('caliberating cam 1')
+                        self.CALIBERATE_CAM_ONE = True
+                        num_ppl = len(numpy.asarray(json.loads(msg_json['data'])['array']))
+
+                        self.camera_one = Camera(num_ppl)
+                    else:
+                        self.process_cam_one_data(msg_json,self.camera_one)
                 elif (sensor_type == 6):
-                    self.process_cam_two_data(msg_json)
+                    if not self.CALIBERATE_CAM_TWO:
+                        print('caliberating cam 2')
+                        self.CALIBERATE_CAM_TWO = True
+                        num_ppl = len(numpy.asarray(json.loads(msg_json['data'])['array']))
+                        self.camera_two = Camera(num_ppl)
+                    else:
+                        self.process_cam_one_data(msg_json,self.camera_two)
 
                 # Send a response to all connected client except the server
                 #for conn in self.CONNECTIONS:
@@ -108,69 +126,69 @@ class MultiServer:
         asyncio.run(self.main())
 
     def process_pulse_data(self,msg_json):
-        print('in gsr data')
+        #print('in gsr data')
         self.GSR.update_gsr_data(msg_json['gsr'],msg_json['pulse'],msg_json['time'])
 
     def process_fsr_data(self, msg_json):
-        print('inside fsr data')
+        #print('inside fsr data')
         self.FSR.update_fsr_data(msg_json['fsr'],msg_json['time'])
 
     def process_emg_data(self, msg_json):
-        print('in func emg data')
+        #print('in func emg data')
         self.EMG.update_emg_data(msg_json['emg'],msg_json['time'])
 
-    def process_speech_data(self,msg_json):
-        print('in speech 2 text')
-        print(msg_json)
-        #self.speechToText.update_speech_to_text_data(msg_json['speech'],msg_json['text'],msg_json['time'])
+    def process_force_mat_data(self,msg_json):
+        #print('in force mat data')
+        self.force_mat.update_force_mat_data(msg_json["data"], msg_json["time"])
 
-    def process_cam_one_data(self,msg_json):
-        print('in func cam 1 data')
-        data=msg_json['data']
+
+
+    def process_speech_text_data(self,msg_json):
+        #print('in speech 2 text')
+        self.speechToText.update_speech_to_text_data(msg_json['speech'],msg_json['text'],msg_json['time'])
+
+    def process_cam_one_data(self,msg_json,cam):
+        data = msg_json['data']
         self.frame_count+=1
-        # Deserialization
-        print("Decode JSON serialized NumPy array")
         decodedArrays = json.loads(data)
-
         finalNumpyArray = numpy.asarray(decodedArrays["array"])
-        print("NumPy Array")
-        print(finalNumpyArray)
-        #print(msg_json)
+        #print(finalNumpyArray[0, :])
+        cam.setup_people(finalNumpyArray, msg_json['time'])
+
 
     def process_cam_two_data(self,msg_json):
         print('in func cam 2 data')
         #print(msg_json)
 
-    async def send_dummy_data(self,websocket,path):
-
-        print('in send dummy data')
+    async def send_dummy_data(self,websocket):
+        print('in dummy data transfer')
         while True:
             try:
-
                 print('going to send a message')
-                await websocket.send(json.dumps(self.prep_data()))
-                print('sent')
+                #await websocket.send(json.dumps(self.prep_data()))
+                await websocket.send('hi')
+                #print('sent')
             except websockets.exceptions.ConnectionClosedError as error1:
                 print(f'Server Error: {error1}')
 
 
-    def connect_socket_two(self):
-        start_server = websockets.serve(self.send_dummy_data, "localhost", 7892)
-        asyncio.get_event_loop().run_until_complete(start_server)
+    #def connect_socket_two(self):
+        #start_server = websockets.serve(self.send_dummy_data, "localhost", 7892)
+        #asyncio.get_event_loop().run_until_complete(start_server)
+        #asyncio.get_event_loop().run_forever()
 
-        asyncio.get_event_loop().run_forever()
     async def send_to_sockettwo(self):
         print('in send to socket two')
-        async with websockets.serve(self.send_dummy_data,'', 7892):
+        async with websockets.serve(self.send_dummy_data,'', 7892,ping_interval=None,ping_timeout=None):
             await asyncio.Future()  # run forever
 
     def dummy_run(self):
-        print('in dummy run')
+        print('sending data to port 7892')
         asyncio.run(self.send_to_sockettwo())
 
     def collect_data(self):
         self.t.start()
-        #self.poller_thread.start()
+        #self.plotter_thread.start()
 
 
     def prep_data(self):
@@ -186,6 +204,11 @@ class MultiServer:
 
                         #TODO check data from mat
 
+                        3: {
+                            "data":self.force_mat.data,
+                            "time":self.force_mat.time
+                        },
+
                         4: {"speech" : self.speechToText.speech,
                             "text": self.speechToText.text,
                             "time": self.speechToText.time },
@@ -194,23 +217,46 @@ class MultiServer:
                             "time" : self.camera_one.time
                         },
                         6 : {
-                            "data": self.camera_one.people,
-                            "time": self.camera_one.time
+                            "data": self.camera_two.people,
+                            "time": self.camera_two.time
                         }
 
         }
         print('inside prep_data')
         print(data_to_app)
-        return data_to_app
+        with open("sample.json", "w") as outfile:
+            json.dump(data_to_app, outfile)
+        return json.dumps(data_to_app)
 
 
 
     def animate_plot(self,i):
         # Render plots as a matplotlib animation
-        self.axs[0].plot(self.FSR_DATA,self.FSR_TIME)
-        self.axs[1].plot(self.FSR_TIME)
+        self.axs[0][0].plot(self.FSR.fsr_data,self.FSR.time)
+        self.axs[0][1].plot(self.GSR.gsr_data,self.GSR.time)
+        self.axs[0][2].plot(self.GSR.pulse, self.GSR.time)
+        self.axs[0][3].plot(self.EMG.channel_one, self.EMG.time)
+        self.axs[0][4].plot(self.EMG.channel_two, self.EMG.time)
+        self.axs[1][0].plot(self.EMG.channel_three, self.EMG.time)
+        self.axs[1][1].plot(self.EMG.channel_four, self.EMG.time)
+        self.axs[1][2].plot(self.EMG.channel_five, self.EMG.time)
+        self.axs[1][3].plot(self.EMG.channel_six, self.EMG.time)
+        self.axs[1][4].plot(self.EMG.channel_seven, self.EMG.time)
+        self.axs[2][0].plot(self.EMG.channel_eight, self.EMG.time)
+        self.axs[2][1].plot(self.EMG.channel_nine, self.EMG.time)
+        self.axs[2][2].plot(self.EMG.channel_ten, self.EMG.time)
+        self.axs[2][3].plot(self.EMG.channel_eleven, self.EMG.time)
+        self.axs[2][4].plot(self.EMG.channel_twelve, self.EMG.time)
+        self.axs[3][0].plot(self.EMG.channel_thirteen, self.EMG.time)
+        self.axs[3][1].plot(self.EMG.channel_fourteen, self.EMG.time)
+        self.axs[3][2].plot(self.EMG.channel_fifteen, self.EMG.time)
+        self.axs[3][3].plot(self.EMG.channel_sixteen, self.EMG.time)
+        #self.axs[19].plot(self.EMG.channel_sixteen, self.EMG.time)
 
-    def plot(self):
+
+
+
+    async def plot(self):
         anim = FuncAnimation(
             self.fig, self.animate_plot, interval=1000
         )
@@ -221,7 +267,7 @@ class MultiServer:
         print('in send to app')
         self.app_socket = AppConnector()
         self.socket_thread=threading.Thread(target=self.app_socket.run())
-        print('socket thread starting')
+        #print('socket thread starting')
         self.socket_thread.start()
 
 
@@ -240,19 +286,21 @@ class MultiServer:
 
 
     def exit(self):
+        #TODO cancel async functions on exit()
         self.exit_thread.start()
-
-
 
 
 if __name__ == "__main__":
     listener = MultiServer()
-    listener.collect_data()
+    #listener.plot()
+    #listener.collect_data()
+    listener.dummy_run()
+
     #listener.prep_data()
     #S = threading.Timer(2.0, listener.prep_data())
     #S.start()
-    #listener.plot()
-    listener.dummy_run()
+
+
 
 
 
