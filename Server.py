@@ -78,7 +78,7 @@ class MultiServer:
                 msg_json = json.loads(message)
                 sensor_type = msg_json['sensor_type']
 
-                #print(sensor_type)
+                print(sensor_type)
                 if(sensor_type == 0):
                     #print("Sensor : GSR and Pulse streaming")
                     self.process_pulse_data(msg_json)
@@ -105,7 +105,7 @@ class MultiServer:
 
                         self.camera_one = Camera(num_ppl,self.cam_rate)
                     else:
-                        #print('Cam data')
+                        print('Cam data')
                         self.process_cam_one_data(msg_json,self.camera_one)
                 elif (sensor_type == 6):
                     if not self.CALIBERATE_CAM_TWO:
@@ -114,7 +114,7 @@ class MultiServer:
                         num_ppl = len(numpy.asarray(msg_json['data']))
                         self.camera_two = Camera(num_ppl,self.cam_rate)
                     else:
-                        #print('Cam data')
+                        print('Cam data')
                         self.process_cam_one_data(msg_json,self.camera_two)
 
                 # Send a response to all connected client except the server
@@ -166,7 +166,7 @@ class MultiServer:
 
 
     async def send_dummy_data(self,websocket):
-        #print('in dummy data transfer')
+        print('in dummy data transfer')
         while True:
             try:
                 #print('going to send a message')
@@ -183,12 +183,12 @@ class MultiServer:
         #asyncio.get_event_loop().run_forever()
 
     async def send_to_sockettwo(self):
-        #print('in send to socket two')
+        print('in send to socket two')
         async with websockets.serve(self.send_dummy_data,'', 7892,ping_interval=None,ping_timeout=None):
             await asyncio.Future()  # run forever
 
     def dummy_run(self):
-        #print('sending data to mobile app')
+        print('sending data to mobile app')
         asyncio.run(self.send_to_sockettwo())
 
     def collect_data(self):
@@ -203,7 +203,7 @@ class MultiServer:
 
 
     def prep_data(self):
-        #print('sending data to mobile app')
+        print('sending data to mobile app')
         data_to_app = {
                         0: {"gsr":self.get_last_n_data(self.GSR.gsr_data),
                             "pulse":self.get_last_n_data(self.GSR.pulse),
@@ -304,8 +304,8 @@ if __name__ == "__main__":
     #listener.prep_data()
     #S = threading.Timer(2.0, listener.prep_data())
     #S.start()
-    listener.plot()
-    #listener.dummy_run()
+    #listener.plot()
+    listener.dummy_run()
 
 
 
