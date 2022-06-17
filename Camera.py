@@ -1,4 +1,3 @@
-from NumpyArrayEncoder import NumpyArrayEncoder
 import json
 
 class Camera:
