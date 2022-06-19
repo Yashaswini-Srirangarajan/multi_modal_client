@@ -27,12 +27,12 @@ class MultiServer:
     EMG = EMG()
     force_mat = ForceMat()
     speechToText = SpeechToText()
-    CALIBERATE_CAM_TWO =False
-    CALIBERATE_CAM_ONE =False
-    cam_rate =40
-    sensor_rate=1000
-    camera_one=Camera(1,cam_rate)
-    camera_two=Camera(1,cam_rate)
+    CALIBERATE_CAM_TWO = False
+    CALIBERATE_CAM_ONE = False
+    cam_rate = 1
+    sensor_rate = 1000
+    camera_one = Camera(1, cam_rate)
+    camera_two = Camera(1, cam_rate)
 
 
     GSR_DATA = []
@@ -45,7 +45,6 @@ class MultiServer:
     FORCE_MAT_DATA = []
     EMG_DATA = []
 
-
     HOST = ""  # Empty denotes a localhost.
     PORT = 7891
 
@@ -54,6 +53,7 @@ class MultiServer:
     frame_count =0
     fig, axs = plt.subplots()
     CONNECTIONS = set()
+    CONNECTIONS_port_two = set()
 
 
     socket_thread = None
@@ -120,7 +120,7 @@ class MultiServer:
                 # Send a response to all connected client except the server
                 #for conn in self.CONNECTIONS:
                     #if conn != websocket:
-                        #await conn.send(message)
+                        #await conn.send('success')
             except websockets.exceptions.ConnectionClosedError as error1:
                 print(f'Server Error: {error1}')
                 self.CONNECTIONS.remove(websocket)
@@ -167,6 +167,7 @@ class MultiServer:
 
     async def send_dummy_data(self,websocket):
         print('in dummy data transfer')
+        self.CONNECTIONS_port_two.add(websocket)
         while True:
             try:
                 #print('going to send a message')
@@ -175,7 +176,8 @@ class MultiServer:
                 #print('sent')
             except websockets.exceptions.ConnectionClosedError as error1:
                 print(f'Server Error: {error1}')
-
+                self.CONNECTIONS_port_two.remove(websocket)
+                #self.stop()
 
     #def connect_socket_two(self):
         #start_server = websockets.serve(self.send_dummy_data, "localhost", 7892)
@@ -211,22 +213,22 @@ class MultiServer:
                         1: {"fsr":self.get_last_n_data(self.FSR.fsr_data),
                             "time":self.get_last_n_data(self.FSR.time)},
                         2: {"emg":self.get_last_n_data(self.EMG.all_channel_data),
-                            "emg_channel_one": self.get_last_n_data(self.EMG.channel_one),
-                            "emg_channel_two": self.get_last_n_data(self.EMG.channel_two),
-                            "emg_channel_three": self.get_last_n_data(self.EMG.channel_three),
-                            "emg_channel_four": self.get_last_n_data(self.EMG.channel_four),
-                            "emg_channel_five": self.get_last_n_data(self.EMG.channel_five),
-                            "emg_channel_six": self.get_last_n_data(self.EMG.channel_six),
-                            "emg_channel_seven": self.get_last_n_data(self.EMG.channel_seven),
-                            "emg_channel_eight": self.get_last_n_data(self.EMG.channel_eight),
-                            "emg_channel_nine": self.get_last_n_data(self.EMG.channel_nine),
-                            "emg_channel_ten": self.get_last_n_data(self.EMG.channel_ten),
-                            "emg_channel_eleven": self.get_last_n_data(self.EMG.channel_eleven),
-                            "emg_channel_twelve": self.get_last_n_data(self.EMG.channel_twelve),
-                            "emg_channel_thirteen": self.get_last_n_data(self.EMG.channel_thirteen),
-                            "emg_channel_fourteen": self.get_last_n_data(self.EMG.channel_fourteen),
-                            "emg_channel_fifteen": self.get_last_n_data(self.EMG.channel_fifteen),
-                            "emg_channel_sixteen": self.get_last_n_data(self.EMG.channel_sixteen),
+                            1: self.get_last_n_data(self.EMG.channel_one),
+                            2: self.get_last_n_data(self.EMG.channel_two),
+                            3: self.get_last_n_data(self.EMG.channel_three),
+                            4: self.get_last_n_data(self.EMG.channel_four),
+                            5: self.get_last_n_data(self.EMG.channel_five),
+                            6: self.get_last_n_data(self.EMG.channel_six),
+                            7: self.get_last_n_data(self.EMG.channel_seven),
+                            8: self.get_last_n_data(self.EMG.channel_eight),
+                            9: self.get_last_n_data(self.EMG.channel_nine),
+                            10: self.get_last_n_data(self.EMG.channel_ten),
+                            11: self.get_last_n_data(self.EMG.channel_eleven),
+                            12: self.get_last_n_data(self.EMG.channel_twelve),
+                            13: self.get_last_n_data(self.EMG.channel_thirteen),
+                            14: self.get_last_n_data(self.EMG.channel_fourteen),
+                            15: self.get_last_n_data(self.EMG.channel_fifteen),
+                            16: self.get_last_n_data(self.EMG.channel_sixteen),
                             "time":self.get_last_n_data(self.EMG.time)},
 
                         3: {
@@ -286,17 +288,11 @@ class MultiServer:
         # self.axs[3][3].plot(self.EMG.channel_sixteen, self.EMG.time)
         # #self.axs[19].plot(self.EMG.channel_sixteen, self.EMG.time)
 
-
-
-
     def plot(self):
         anim = FuncAnimation(
             self.fig, self.animate_plot, interval=1000
         )
         plt.show()
-
-
-
 
 if __name__ == "__main__":
     listener = MultiServer()
